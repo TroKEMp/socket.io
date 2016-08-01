@@ -26,7 +26,7 @@ var players = [];
 io.on('connection', function(socket){
     console.log('a user connected ' + socket.id.split('#').pop());
     var player = {
-        id: socket.id.split('#').pop(),
+        name: socket.id.split('#').pop(),
         velocity: 0,
         position: new THREE.Vector3(0,0,0),
         direction: new THREE.Vector3(0,0,0),
@@ -35,18 +35,18 @@ io.on('connection', function(socket){
     players.push(player);
     socket.on('player_update', function (net) {
         players.forEach(function (player) {
-        if(player.id == net.id){
-            player.move = net.move;
-            player.direction = net.direction;
-        }
+            if(player.name == net.name){
+                player.move = net.move;
+                player.direction = net.direction;
+            }
         });
     });
     socket.on('disconnect', function(){
         console.log('user disconnected ' + socket.id.split('#').pop());
-        var id = socket.id.split('#').pop();
+        var name = socket.id.split('#').pop();
         var index = null;
         players.forEach(function (player) {
-        if(player.id == id)
+        if(player.name == name)
         {
             index = players.indexOf(player);
             return false;
@@ -54,7 +54,7 @@ io.on('connection', function(socket){
         });
         if (index > -1)
         players.splice(index, 1);
-        io.emit('disconnected', {id: id});
+        io.emit('disconnected', {name: name});
     });
 });
 
@@ -69,7 +69,7 @@ function physics() {
 }
 
 function update() {
-    io.emit('update', {data: players});
+    io.emit('update', {info: players});
 }
 
 setInterval(physics, 15);
