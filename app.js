@@ -21,7 +21,8 @@ http.listen(80, function() {
     console.log('listening on *:80');
 });
 
-var players = [];
+var players = {};
+var inputs = {};
 
 io.on('connection', function(socket){
     console.log('a user connected ' + socket.id.split('#').pop());
@@ -32,45 +33,63 @@ io.on('connection', function(socket){
         direction: new THREE.Vector3(0,0,0),
         move: false
     };
-    players.push(player);
+    players[socket.id.split('#').pop()] = player;
+    inputs[socket.id.split('#').pop()] = [];
     socket.on('player_update', function (net) {
-        players.forEach(function (player) {
-            if(player.name == net.name){
-                player.move = net.move;
-                player.direction = net.direction;
-            }
-        });
+        inputs[net.name].push(net);
     });
     socket.on('disconnect', function(){
         console.log('user disconnected ' + socket.id.split('#').pop());
         var name = socket.id.split('#').pop();
-        var index = null;
-        players.forEach(function (player) {
-        if(player.name == name)
-        {
-            index = players.indexOf(player);
-            return false;
-        }
-        });
-        if (index > -1)
-        players.splice(index, 1);
+        delete players[name];
+        delete inputs[name];
         io.emit('disconnected', {name: name});
     });
 });
 
 function physics() {
-    players.forEach(function (player) {
+    //var time = Date.now();
+    //var dt = (time - last)/1000;
+    //last = time;
+
+    for(var name in players) {
+        var player = players[name];
+        var input = inputs[name].shift();
+        if(input)
+        {
+            player.move = input.move;
+            if(player.move) player.velocity = 1;
+            player.direction = input.direction;
+            player.velocity *= 0.85;
+            var direction = new THREE.Vector3().copy(player.direction);
+            var position = new THREE.Vector3().copy(player.position);
+            position.add(direction.multiplyScalar(player.velocity));
+            player.position = position;
+        }
+        else
+        {
+            //player.velocity *= 0.85;
+            //var direction = new THREE.Vector3().copy(player.direction);
+            //var position = new THREE.Vector3().copy(player.position);
+            //position.add(direction.multiplyScalar(player.velocity));
+            //player.position = position;
+        }
+        /*
         if(player.move) player.velocity = 1;
         player.velocity *= 0.85;
-        var v = player.velocity;
-        var move = new THREE.Vector3(player.position.x + v * player.direction.x, player.position.y + v * player.direction.y, 0);
-        player.position = move;
-    });
+        var direction = new THREE.Vector3().copy(player.direction);
+        var position = new THREE.Vector3().copy(player.position);
+        position.add(direction.multiplyScalar(player.velocity));
+        player.position = position;
+        */
+    }
 }
 
 function update() {
-    io.emit('update', {info: players});
+    io.emit('update', {players: players});
 }
+
+//var last = Date.now();
 
 setInterval(physics, 15);
 setInterval(update, 45);

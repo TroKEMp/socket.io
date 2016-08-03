@@ -7,7 +7,8 @@ var GAME = function (config) {
     var socket;
     var scene, camera, clock;
     var renderer, keyboard, mouse;
-    var players = [], me = null;
+    var players = {}, me = null;
+    var inputs = [];
     var fps;
 
     init();
@@ -31,10 +32,10 @@ var GAME = function (config) {
 
         window.addEventListener( 'mousemove', function ( event ) {
 
-            //mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-            //mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
-            mouse.x = 1;
-            mouse.y = 0;
+            mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+            mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+            //mouse.x = 1;
+            //mouse.y = 0;
             mouse.z = 0;
             mouse.normalize();
 
@@ -64,10 +65,10 @@ var GAME = function (config) {
 
         requestAnimationFrame( render );
 
-        //controls();
-        update();
+        controls();
+        //update();
 
-        fps = parseInt(1/clock.getDelta());
+        //fps = parseInt(1/clock.getDelta());
 
         renderer.render(scene, camera);
 
@@ -83,53 +84,114 @@ var GAME = function (config) {
 
         var geometry = new THREE.BoxGeometry( 1, 1, 1 );
         var material = new THREE.MeshBasicMaterial( {color: 0x0000ff} );
-        me = new THREE.Mesh( geometry, material );
-        me.name = socket.id;
+        var hero = new THREE.Mesh( geometry, material );
+        hero.name = socket.id;
 
-        me.userData = {
-            name: me.name,
+        me = {
+            name: socket.id,
             velocity: 0,
-            position: me.position.copy(new THREE.Vector3(0,0,0)),
-            direction: new THREE.Vector3(0,0,0),
-            move: false
+            position: hero.position,
+            direction: new THREE.Vector3(),
+            move: false,
+            hero: hero
         }
 
-        scene.add( me );
+        players[socket.id] = me;
+
+        scene.add( hero );
 
     }
 
     function physics() {
+        //var dt = clock.getDelta();
 
+        for(var name in players) {
+            var player = players[name];
+            if(me.name == player.name)
+            {
+                var input = inputs.shift();
+                if(input)
+                {
+                    player.move = input.move;
+                    if(player.move) player.velocity = 1;
+                    player.direction.copy(input.direction);
+                    player.hero.lookAt(player.position.clone().add(player.direction));
+                    player.velocity *= 0.85;
+                    player.position.add(player.direction.clone().multiplyScalar(player.velocity));
+                }
+                else
+                {
+                    //player.move = false;
+                    //player.velocity *= 0.85;
+                    //player.position.add(player.direction.clone().multiplyScalar(player.velocity));
+                }
+                camera.position.copy(player.position);
+                camera.position.z = 50;
+            }
+            //console.log(player);
+        }
+        /*
         scene.traverse(function (player) {
             if(player instanceof THREE.Mesh)
             {
-                if(player.userData.move) player.userData.velocity = 1;
-                player.userData.velocity *= 0.85;
-                player.lookAt(player.userData.direction.clone().add(player.position));
-                player.position.add(player.userData.direction.clone().multiplyScalar(player.userData.velocity));
                 if(player.name == me.name)
                 {
+                    if(player.userData.move) player.userData.velocity += 2 * dt;
+                    player.userData.velocity *= 60 * dt;
+                    player.lookAt(player.userData.direction.clone().add(player.position));
+                    player.position.add(player.userData.direction.clone().multiplyScalar(player.userData.velocity));
                     camera.position.copy(player.position);
                     camera.position.z = 50;
                 }
             }
         });
-
+        */
     }
 
     function server_update(net) {
+        for(var name in net.players) {
+            var player = net.players[name];
+            if(players[name])
+            {
+                if(me.name != player.name)
+                {
+                    players[name].velocity = player.velocity;
+                    players[name].position.copy(player.position);
+                    players[name].direction.copy(player.direction);
+                    players[name].move = player.move;
+                    players[name].hero.lookAt(players[name].position.clone().add(players[name].direction));
+                }
+            }
+            else
+            {
+                var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+                var material = new THREE.MeshBasicMaterial( {color: Math.random() * 0x00ff00} );
+                var hero = new THREE.Mesh( geometry, material );
+                hero.name = name;
+                players[name] = {
+                    name: name,
+                    velocity: player.velocity,
+                    position: hero.position.copy(player.position),
+                    direction: new THREE.Vector3().copy(player.direction),
+                    move: player.move,
+                    hero: hero
+                }
+                scene.add(hero);
+            }
+        }
+        /*
         net.info.forEach(function (player) {
             var p = scene.getObjectByName(player.name);
             if(p)
             {
-                p.position.copy(player.position);
                 if(p.name == me.name)
                 {
-                    camera.position.copy(player.position);
-                    camera.position.z = 50;
+                    //camera.position.copy(player.position);
+                    //camera.position.z = 50;
                 }
                 else
                 {
+                    p.position.copy(player.position);
                     p.userData.direction.copy(player.direction);
                     p.userData.move = player.move;
                     p.userData.velocity = player.velocity;
@@ -151,22 +213,25 @@ var GAME = function (config) {
                 scene.add(stranger);
             }
         });
+        */
     }
 
     function update() {
-        socket.emit('player_update', {name: me.name, direction: me.userData.direction, move: me.userData.move});
+        inputs.push({direction: me.direction, move: me.move});
+        socket.emit('player_update', {name: me.name, direction: me.direction, move: me.move});
     }
 
     function controls() {
-        me.userData.move = keyboard.pressed("W");
-        me.userData.direction.copy(mouse);
+        me.move = keyboard.pressed("W");
+        me.direction.copy(mouse);
+        update();
     }
 
     $(document).keydown(function () {
-        controls();
+        //controls();
     });
 
     $(document).keyup(function () {
-        controls();
+        //controls();
     });
 }
