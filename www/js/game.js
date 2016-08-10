@@ -48,6 +48,7 @@ var GAME = function (config) {
                 $("#fps").text(fps);
             }, 500);
             setInterval(physics, 15);
+            setInterval(controls, 18);
         });
 
         socket.on('disconnected', function (net) {
@@ -65,7 +66,7 @@ var GAME = function (config) {
 
         requestAnimationFrame( render );
 
-        controls();
+        //controls();
         //update();
 
         //fps = parseInt(1/clock.getDelta());
@@ -103,7 +104,6 @@ var GAME = function (config) {
     }
 
     function physics() {
-        //var dt = clock.getDelta();
 
         for(var name in players) {
             var player = players[name];
@@ -113,7 +113,7 @@ var GAME = function (config) {
                 if(input)
                 {
                     player.move = input.move;
-                    if(player.move) player.velocity = 1;
+                    if(player.move) player.velocity = Math.min((player.velocity + 0.001)*1.25, 0.3);
                     player.direction.copy(input.direction);
                     player.hero.lookAt(player.position.clone().add(player.direction));
                     player.velocity *= 0.85;
@@ -121,31 +121,20 @@ var GAME = function (config) {
                 }
                 else
                 {
-                    //player.move = false;
                     //player.velocity *= 0.85;
                     //player.position.add(player.direction.clone().multiplyScalar(player.velocity));
                 }
                 camera.position.copy(player.position);
                 camera.position.z = 50;
             }
-            //console.log(player);
-        }
-        /*
-        scene.traverse(function (player) {
-            if(player instanceof THREE.Mesh)
+            else
             {
-                if(player.name == me.name)
-                {
-                    if(player.userData.move) player.userData.velocity += 2 * dt;
-                    player.userData.velocity *= 60 * dt;
-                    player.lookAt(player.userData.direction.clone().add(player.position));
-                    player.position.add(player.userData.direction.clone().multiplyScalar(player.userData.velocity));
-                    camera.position.copy(player.position);
-                    camera.position.z = 50;
-                }
+                //if(player.move) player.velocity = Math.min((player.velocity + 0.001)*1.25, 0.3);
+                //player.hero.lookAt(player.position.clone().add(player.direction));
+                player.velocity *= 0.85;
+                player.position.add(player.direction.clone().multiplyScalar(player.velocity));
             }
-        });
-        */
+        }
     }
 
     function server_update(net) {
@@ -179,41 +168,6 @@ var GAME = function (config) {
                 scene.add(hero);
             }
         }
-        /*
-        net.info.forEach(function (player) {
-            var p = scene.getObjectByName(player.name);
-            if(p)
-            {
-                if(p.name == me.name)
-                {
-                    //camera.position.copy(player.position);
-                    //camera.position.z = 50;
-                }
-                else
-                {
-                    p.position.copy(player.position);
-                    p.userData.direction.copy(player.direction);
-                    p.userData.move = player.move;
-                    p.userData.velocity = player.velocity;
-                }
-            }
-            else
-            {
-                var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-                var material = new THREE.MeshBasicMaterial( {color: Math.random() * 0x00ff00} );
-                var stranger = new THREE.Mesh( geometry, material );
-                stranger.name = player.name;
-                stranger.userData = {
-                    name: stranger.name,
-                    velocity: player.velocity,
-                    position: stranger.position.copy(player.position),
-                    direction: new THREE.Vector3().copy(player.direction),
-                    move: player.move
-                }
-                scene.add(stranger);
-            }
-        });
-        */
     }
 
     function update() {
@@ -226,12 +180,4 @@ var GAME = function (config) {
         me.direction.copy(mouse);
         update();
     }
-
-    $(document).keydown(function () {
-        //controls();
-    });
-
-    $(document).keyup(function () {
-        //controls();
-    });
 }

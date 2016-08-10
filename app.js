@@ -36,9 +36,10 @@ io.on('connection', function(socket){
     players[socket.id.split('#').pop()] = player;
     inputs[socket.id.split('#').pop()] = [];
     socket.on('player_update', function (net) {
-        inputs[net.name].push(net);
+        if(inputs[net.name])
+            inputs[net.name].push(net);
     });
-    socket.on('disconnect', function(){
+    socket.on('disconnect', function() {
         console.log('user disconnected ' + socket.id.split('#').pop());
         var name = socket.id.split('#').pop();
         delete players[name];
@@ -48,9 +49,6 @@ io.on('connection', function(socket){
 });
 
 function physics() {
-    //var time = Date.now();
-    //var dt = (time - last)/1000;
-    //last = time;
 
     for(var name in players) {
         var player = players[name];
@@ -58,7 +56,7 @@ function physics() {
         if(input)
         {
             player.move = input.move;
-            if(player.move) player.velocity = 1;
+            if(player.move) player.velocity = Math.min((player.velocity + 0.001)*1.25, 0.30);
             player.direction = input.direction;
             player.velocity *= 0.85;
             var direction = new THREE.Vector3().copy(player.direction);
@@ -74,22 +72,12 @@ function physics() {
             //position.add(direction.multiplyScalar(player.velocity));
             //player.position = position;
         }
-        /*
-        if(player.move) player.velocity = 1;
-        player.velocity *= 0.85;
-        var direction = new THREE.Vector3().copy(player.direction);
-        var position = new THREE.Vector3().copy(player.position);
-        position.add(direction.multiplyScalar(player.velocity));
-        player.position = position;
-        */
     }
 }
 
 function update() {
     io.emit('update', {players: players});
 }
-
-//var last = Date.now();
 
 setInterval(physics, 15);
 setInterval(update, 45);
